@@ -4,6 +4,8 @@ typedef struct {
   GtkEntry *username_entry;
   GtkEntry *password_entry;
   GtkEntry *other_entry;
+  GtkEntry *hours;
+  GtkEntry *minutes;
   GtkLabel *clock_label;
   guint clock_source_id;
 } AppWidgets;
@@ -58,12 +60,18 @@ static void activate_cb(GtkApplication *app) {
   gtk_window_set_default_size(GTK_WINDOW(window), 300, 300);
   // gtk_window_set_child(GTK_WINDOW(window), label);
 
+  GtkWidget *header = adw_header_bar_new();
+  adw_header_bar_set_title_widget(ADW_HEADER_BAR(header),
+                                  adw_window_title_new("Time", NULL));
+
   GtkWidget *box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10);
   gtk_widget_set_margin_start(box, 15);
   gtk_widget_set_margin_end(box, 15);
   gtk_widget_set_margin_top(box, 15);
   gtk_widget_set_margin_bottom(box, 15);
   gtk_window_set_child(GTK_WINDOW(window), box);
+
+  gtk_box_append(GTK_BOX(box), GTK_WIDGET(header));
 
   // --- Input Field 1: Username ---
   widgets->username_entry = GTK_ENTRY(gtk_entry_new());
@@ -80,6 +88,17 @@ static void activate_cb(GtkApplication *app) {
   widgets->other_entry = GTK_ENTRY(gtk_entry_new());
   gtk_entry_set_placeholder_text(widgets->other_entry, "URL");
   gtk_box_append(GTK_BOX(box), GTK_WIDGET(widgets->other_entry));
+
+  widgets->clock_label = GTK_LABEL(gtk_label_new(NULL));
+  gtk_widget_add_css_class(GTK_WIDGET(widgets->clock_label),
+                           "title-4"); // Use a nice Adwaita style for the text
+  adw_header_bar_pack_end(ADW_HEADER_BAR(header),
+                          GTK_WIDGET(widgets->clock_label));
+
+  // Set initial time and start the timer to update it every second.
+  update_clock(widgets->clock_label);
+  widgets->clock_source_id =
+      g_timeout_add_seconds(1, update_clock, widgets->clock_label);
 
   // --- Regular Button 1: Submit ---
   GtkWidget *submit_button = gtk_button_new_with_label("Record");
