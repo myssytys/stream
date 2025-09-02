@@ -10,21 +10,59 @@ typedef struct {
   guint clock_source_id;
 } AppWidgets;
 
+typedef struct {
+  GtkWidget *label;  // The label widget to display the time
+  time_t start_time; // The time when the clock was started
+  guint timer_id;    // The ID of the timer event source
+  gboolean running;  // Flag to check if the clock is running
+} ClockData;
+
 static gboolean update_clock(gpointer user_data) {
-  GtkLabel *clock_label = GTK_LABEL(user_data);
-  time_t rawtime;
-  struct tm *timeinfo;
-  char buffer[9]; // HH:MM:SS\0
+  ClockData *data = (ClockData *)user_data;
+  time_t current_time = time(NULL);
+  double elapsed_seconds = difftime(current_time, data->start_time);
 
-  time(&rawtime);
-  timeinfo = localtime(&rawtime);
+  // 2 hours and 15 minutes = (2 * 3600) + (15 * 60) = 7200 + 900 = 8100 seconds
+  if (elapsed_seconds >= 8100) {
+    gtk_label_set_text(GTK_LABEL(data->label), "Timer Finished");
+    data->running = FALSE;
+    data->timer_id = 0;     // Clear the timer ID
+    return G_SOURCE_REMOVE; // Stop the timer
+  }
+  // Format the current time into HH:MM:SS
+  char time_str[9];
+  struct tm *time_info = localtime(&current_time);
+  strftime(time_str, sizeof(time_str), "%H:%M:%S", time_info);
 
-  // Format the time into HH:MM:SS format.
-  strftime(buffer, sizeof(buffer), "%H:%M:%S", timeinfo);
-  gtk_label_set_text(clock_label, buffer);
+  // Update the label text with the current time
+  gtk_label_set_text(GTK_LABEL(data->label), time_str);
 
-  // Return TRUE to keep the timer running.
-  return G_SOURCE_CONTINUE;
+  return G_SOURCE_CONTINUE; // Tell the GLib main loop to call this function
+                            // again
+}
+// Start Recording or Stop Recording
+static void start_stop_clock(GtkWidget *button, gpointer user_data) {
+  ClockData *data = (ClockData *)user_data;
+
+  if (data->running) {
+    // If the clock is running, stop it
+    if (data->timer_id > 0) {
+      g_source_remove(data->timer_id);
+      data->timer_id = 0;
+    }
+    data->running = FALSE;
+    gtk_button_set_label(GTK_BUTTON(button), "Start Clock");
+    gtk_label_set_text(GTK_LABEL(data->label), "Stopped");
+  } else {
+    // If the clock is stopped, start it
+    data->start_time = time(NULL);
+    data->running = TRUE;
+    // Call update_clock immediately to show the time right away
+    update_clock(data);
+    // Schedule update_clock to be called every 1 second
+    data->timer_id = g_timeout_add_seconds(1, update_clock, data);
+    gtk_button_set_label(GTK_BUTTON(button), "Stop Clock");
+  }
 }
 
 static void submit_button_clicked(GtkWidget *widget, gpointer data) {
